@@ -1,0 +1,32 @@
+h = 0.2;
+alpha = 0.001;
+L = 4;
+R = 1;
+[P, T, B] = rectangle_grid(h , L , R);
+
+n = size(P,1);
+[u] = exact(P(:,1),P(:,2),R,L);
+dirichlet = zeros(3*n,1);
+bound = find(B);
+dirichlet(bound) = u(bound,1);
+dirichlet(bound+n) = u(bound,2);
+dirichlet(bound+2*n) = u(bound,3);
+
+solution = fem(T,P,B,dirichlet,zeros(size(P,1)*3),h,alpha);
+error = calc_error(T,P,solution,@exact, R,L);
+error_gesamt = sum(error);
+x = P(:,1);
+y = P(:,2);
+close all;
+figure;
+trisurf(T,x',y',solution(2*n+1:3*n));
+title('p');
+figure;
+trisurf(T,x',y',solution(0*n+1:1*n));
+title('v_1');
+figure;
+trisurf(T,x',y',solution(1*n+1:2*n));
+title('v_2');
+figure;
+quiver(x',y',solution(0*n+1:1*n)',solution(1*n+1:2*n)');
+title('v');

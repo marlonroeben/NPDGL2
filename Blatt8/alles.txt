@@ -1,0 +1,194 @@
+%b
+e = 1e-2;
+h = 1e-2;
+
+u = Upwind(e,h);
+figure;
+plot(0:h:1,u);
+title('Upwind');
+
+u = Galerkin(e,h);
+figure;
+plot(0:h:1,u);
+title('Galerkin');
+
+%c
+delta = 1e-3;
+
+u = Streamline(e,h,delta);
+figure;
+plot(0:h:1,u);
+title('Streamline');
+
+function [ e_G, e_U, e_S ] = d_calcErrorInt( e,h )
+
+[g, u, s] = d_calcError(e,h);
+e_G = GaussQuadrature5(P12func(g));
+e_U = GaussQuadrature5(P12func(u));
+e_S = GaussQuadrature5(P12func(s));
+end
+
+
+function [ e_G, e_U, e_S ] = d_calcError( h, e )
+x = 0:h:1;
+ex = exact(x',e);
+u_G = Galerkin(e,h);
+u_U = Upwind(e,h);
+u_S = Streamline(e,h);
+
+e_G = abs(ex-u_G);
+e_U = abs(ex-u_U);
+e_S = abs(ex-u_S);
+
+end
+
+function [  ] = e_plotError( e)
+%E_PLOTERROR 
+
+hArr = (0.5*ones(1,12)).^(1:12);
+e_G = zeros(1,12);
+e_U = zeros(1,12);
+e_S = zeros(1,12);
+
+i=1;
+for h=hArr
+    [e_G(i),e_U(i),e_S(i)] = d_calcErrorInt(e,h);
+    i=i+1;
+end
+
+loglog(hArr, [e_G; e_U; e_S]);
+legend('Galerkin','Upwind','Streamline');
+
+function [ y ] = exact(x,e)
+%EXACT 
+
+y = (1-exp((x-1)./e))./(1-exp(-1/e));
+
+end
+
+%f
+close all;
+e = 1e-2;
+e_plotError(e);
+title('\epsilon = 1e-2');
+figure
+e = 1e-3;
+e_plotError(e);
+title('\epsilon = 1e-3');
+figure
+e = 1e-4;
+e_plotError(e);
+title('\epsilon = 1e-4');
+
+function [ u ] = Galerkin( e, h )
+%GALERKIN 
+
+n = round(1/h+1);
+
+alpha0 = -e-0.5*h;
+alpha1 = 2*e;
+alpha2 = -e+0.5*h;
+
+A = diag(alpha1*ones(n,1),0);
+A = A + diag(alpha0*ones(n-1,1),-1);
+A = A + diag(alpha2*ones(n-1,1),1);
+
+A(1,:) = eye(1,n);
+A(end,:) = 0;
+A(end,end) = 1;
+
+
+b = eye(n,1);
+u = A\b;
+
+end
+
+function [ I ] = GaussQuadrature5( f )
+
+%Transform with x |-> 0.5x+0.5
+f_trans = @(x)0.5*f(0.5*x+0.5);
+I = GaussQuadrature5Ref(f_trans);
+end
+
+function [ I ] = GaussQuadrature5Ref(f)
+    x = zeros(5,1);
+    a = x;
+    x(5) = sqrt(5+2*sqrt(10/7))/3;
+    x(1) = -x(5);
+    x(4) = sqrt(5-2*sqrt(10/7))/3;
+    x(2) = -x(4);
+    x(3) = 0;
+    a(1) = (322-13*sqrt(70))/900;
+    a(5) = a(1);
+    a(2) = (322+13*sqrt(70))/900;
+    a(4) = a(2);
+    a(3) = 128/225;
+    I = sum(a.*f(x));
+end
+
+function [ f ] = P12func( u )
+% Konvertiert ein Funktionswertearray in eine auswertbare Funktion mit
+% lineaerer Interpolation. auf dem Interval (0,1)
+
+f = @(x)linInter(u,x);
+
+end
+
+function [y] = linInter(u,x)
+    u = u(:);
+    n = length(u)-1;
+    h = 1/n;
+    i = floor(x/h)+1;
+    m = mod(x,h);
+    %Konstant fortsetzen
+    i = min(n,max(1,i));
+    y = (1-m./h).*u(i)+(m./h).*u(i+1);
+end
+
+function [ u ] = Streamline( e,h, d )
+%STREAMLINE
+
+d = 0.05*h;
+
+n = round(1/h+1);
+
+alpha0 = -e/h-0.5+d*1/h;
+alpha1 = 2*e/h-2*d*1/h;
+alpha2 = -e/h+0.5+d*1/h;
+
+A = diag(alpha1*ones(n,1),0);
+A = A + diag(alpha0*ones(n-1,1),-1);
+A = A + diag(alpha2*ones(n-1,1),1);
+
+A(1,:) = eye(1,n);
+A(end,:) = 0;
+A(end,end) = 1;
+
+
+b = eye(n,1);
+u = A\b;
+
+end
+
+function [ u ] = Upwind( e, h )
+%UPWIND 
+
+n = round(1/h+1);
+
+alpha0 = -e-h;
+alpha1 = 2*e+h;
+alpha2 = -e;
+
+A = diag(alpha1*ones(n,1),0);
+A = A + diag(alpha0*ones(n-1,1),-1);
+A = A + diag(alpha2*ones(n-1,1),1);
+
+A(1,:) = eye(1,n);
+A(end,:) = 0;
+A(end,end) = 1;
+
+
+b = eye(n,1);
+u = A\b;
+end
+
